@@ -315,14 +315,14 @@ public class SSLService: SSLServiceDelegate {
 	#if os(Linux)
 	
 		/// SSL Connection
-		public private(set) var cSSL: UnsafeMutablePointer<SSL>? = nil
+		public private(set) var cSSL: OpaquePointer? = nil
 	
 		/// SSL Method
 		/// **Note:** We use `SSLv23` which causes negotiation of the highest available SSL/TLS version.
-		public private(set) var method: UnsafePointer<SSL_METHOD>? = nil
+		public private(set) var method: OpaquePointer? = nil //nethra
 	
 		/// SSL Context
-		public private(set) var context: UnsafeMutablePointer<SSL_CTX>? = nil
+		public private(set) var context: OpaquePointer? = nil
 	
 	
 		// MARK: ALPN
@@ -402,21 +402,22 @@ public class SSLService: SSLServiceDelegate {
 			// Common initialization...
 			// 	- We only do this once...
 			if !SSLService.initialized {
-				SSL_library_init()
-				SSL_load_error_strings()
-				OPENSSL_config(nil)
-				OPENSSL_add_all_algorithms_conf()
+                                OpenSSL_SSL_init()
+				//SSL_library_init()
+				//SSL_load_error_strings()
+				//OPENSSL_config(nil)
+				//OPENSSL_add_all_algorithms_conf()
 				SSLService.initialized = true
 			}
 			
 			// Server or client specific method determination...
 			if isServer {
 				
-				self.method = SSLv23_server_method()
+				self.method = TLS_server_method()
 				
 			} else {
 				
-				self.method = SSLv23_client_method()
+				self.method = TLS_client_method()
 			}
 			
 		#endif
@@ -841,7 +842,8 @@ public class SSLService: SSLServiceDelegate {
 			
 			// Handle the stuff common to both client and server...
 			//	- Auto retry...
-			SSL_CTX_ctrl(context, SSL_CTRL_MODE, SSL_MODE_AUTO_RETRY, nil)
+                        OpenSSL_SSL_CTX_set_mode(context, Int(SSL_MODE_AUTO_RETRY))
+			//SSL_CTX_ctrl(context, SSL_CTRL_MODE, SSL_MODE_AUTO_RETRY, nil)
 
 			//	- User selected cipher list...
 			SSL_CTX_set_cipher_list(context, self.configuration.cipherSuite)
@@ -858,7 +860,8 @@ public class SSLService: SSLServiceDelegate {
 			// Then handle the client/server specific stuff...
 			if !self.isServer {
 				
-				SSL_CTX_ctrl(context, SSL_CTRL_OPTIONS, CLong(SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION), nil)
+                                let a =  OpenSSL_SSL_CTX_set_options(context, Int(SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION))
+				//SSL_CTX_ctrl(context, SSL_CTRL_OPTIONS, CLong(SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION), nil)
 			}
 			
 			// Now configure the rest...
@@ -1125,7 +1128,7 @@ public class SSLService: SSLServiceDelegate {
 	///
 	/// - Returns: `UnsafeMutablePointer` to the SSL connection.
 	///
-	private func prepareConnection(socket: Socket) throws -> UnsafeMutablePointer<SSL> {
+	private func prepareConnection(socket: Socket) throws -> OpaquePointer {
 	
 		// Make sure our context is valid...
 		guard let context = self.context else {
